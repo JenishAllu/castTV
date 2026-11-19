@@ -287,7 +287,9 @@ function initializeCast() {
     const apiConfig = new chrome.cast.ApiConfig(
         sessionRequest,
         sessionListener,
-        receiverListener
+        receiverListener,
+        // Auto-join policy
+        chrome.cast.AutoJoinPolicy.TAB_AND_ORIGIN_SCOPED
     );
 
     chrome.cast.initialize(apiConfig, onInitSuccess, onInitError);
@@ -401,12 +403,27 @@ function loadMedia(videoInfo) {
         return;
     }
 
-    const mediaInfo = new chrome.cast.media.MediaInfo(videoInfo.url, videoInfo.mimeType || 'video/mp4');
-    mediaInfo.metadata = new chrome.cast.media.GenericMediaMetadata();
-    mediaInfo.metadata.title = videoInfo.title || 'Web Video';
-    if (videoInfo.poster) {
-        mediaInfo.metadata.images = [{ url: videoInfo.poster }];
+    // Validate and fix URL for Default Receiver
+    const fixedVideoInfo = prepareVideoForCasting(videoInfo);
+    if (!fixedVideoInfo) {
+        showSnackbar('Cannot cast this video format. Try a direct .mp4/.m3u8/.mpd link or YouTube.', 'Dismiss');
+        return;
     }
+
+    console.log('Casting:', fixedVideoInfo);
+
+    const mediaInfo = new chrome.cast.media.MediaInfo(fixedVideoInfo.url, fixedVideoInfo.mimeType);
+    mediaInfo.metadata = new chrome.cast.media.GenericMediaMetadata();
+    mediaInfo.metadata.title = fixedVideoInfo.title || 'Web Video';
+    if (fixedVideoInfo.poster) {
+        mediaInfo.metadata.images = [{ url: fixedVideoInfo.poster }];
+    }
+
+    // Add custom data for receiver
+    mediaInfo.customData = {
+        sourceUrl: videoInfo.url,
+        originalType: videoInfo.type
+    };
 
     const request = new chrome.cast.media.LoadRequest(mediaInfo);
     request.autoplay = true;
@@ -424,9 +441,102 @@ function loadMedia(videoInfo) {
             showSnackbar('Now playing on TV');
         })
         .catch(err => {
-            console.error('Load media error:', err);
-            showSnackbar('Failed to play video: ' + err.description, 'Retry', () => loadMedia(videoInfo));
+            console.error('Load media error:', err.code, err.description, err.details);
+            let msg = 'Failed to cast: ';
+            switch (err.code) {
+                case chrome.cast.ErrorCode.INVALID_PARAMETER:
+                    msg += 'Invalid video URL or format';
+                    break;
+                case chrome.cast.ErrorCode.LOAD_FAILED:
+                    msg += 'Video failed to load (check CORS/format)';
+                    break;
+                case chrome.cast.ErrorCode.TIMEOUT:
+                    msg += 'Connection timeout';
+                    break;
+                default:
+                    msg += err.description || 'Unknown error';
+            }
+            showSnackbar(msg, 'Retry', () => loadMedia(videoInfo));
         });
+}
+
+function prepareVideoForCasting(videoInfo) {
+    const url = videoInfo.url;
+    const type = videoInfo.type;
+
+    // YouTube: Must use youtu.be format for Default Receiver
+    if (type === 'youtube' || url.includes('youtube.com') || url.includes('youtu.be')) {
+        let videoId = null;
+        const patterns = [
+            /youtu\.be\/([^?&]+)/,
+            /youtube\.com\/watch\?v=([^&]+)/,
+            /youtube\.com\/shorts\/([^?&]+)/,
+            /youtube\.com\/embed\/([^?&]+)/
+        ];
+        for (const pattern of patterns) {
+            const match = url.match(pattern);
+            if (match) { videoId = match[1]; break; }
+        }
+        if (videoId) {
+            return {
+                ...videoInfo,
+                url: `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1`,
+                mimeType: 'text/html',
+                type: 'youtube-embed'
+            };
+        }
+    }
+
+    // Vimeo: Use player.vimeo.com embed
+    if (type === 'vimeo' || url.includes('vimeo.com')) {
+        let videoId = null;
+        const match = url.match(/vimeo\.com\/(\d+)/);
+        if (match) videoId = match[1];
+        else if (url.includes('player.vimeo.com/video/')) {
+            videoId = url.split('player.vimeo.com/video/')[1].split('?')[0].split('/')[0];
+        }
+        if (videoId) {
+            return {
+                ...videoInfo,
+                url: `https://player.vimeo.com/video/${videoId}?autoplay=1&api=1`,
+                mimeType: 'text/html',
+                type: 'vimeo-embed'
+            };
+        }
+    }
+
+    // Direct video formats supported by Default Receiver
+    const supportedVideoTypes = {
+        'application/vnd.apple.mpegurl': ['.m3u8', 'm3u8'],
+        'application/dash+xml': ['.mpd', 'mpd'],
+        'video/mp4': ['.mp4', 'mp4'],
+        'video/webm': ['.webm', 'webm'],
+    };
+
+    // Check if URL has supported extension
+    for (const [mimeType, extensions] of Object.entries(supportedVideoTypes)) {
+        for (const ext of extensions) {
+            if (url.includes(ext)) {
+                return {
+                    ...videoInfo,
+                    url: url,
+                    mimeType: mimeType
+                };
+            }
+        }
+    }
+
+    // Try to infer from mimeType if provided
+    if (videoInfo.mimeType && supportedVideoTypes[videoInfo.mimeType]) {
+        return { ...videoInfo, mimeType: videoInfo.mimeType };
+    }
+
+    // Unknown format - warn but try anyway
+    console.warn('Unknown video format, attempting to cast:', url);
+    return {
+        ...videoInfo,
+        mimeType: videoInfo.mimeType || 'video/mp4'
+    };
 }
 
 function togglePlayPause() {
