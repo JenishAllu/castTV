@@ -1,6 +1,9 @@
 # Web Video Caster
 
-A free, ad-free, open-source Android app that casts web videos to Chromecast/Google TV devices. Clone of Web Video Caster (com.instantbits.cast.webvideo) built with modern Android architecture.
+A free, ad-free, open-source **Android app** and **Web App** that casts web videos to Chromecast/Google TV devices. Clone of Web Video Caster (com.instantbits.cast.webvideo) built with modern architecture.
+
+## 🌐 Try the Web App Now
+**[https://JenishAllu.github.io/castTV/](https://JenishAllu.github.io/castTV/)** - Works in Chrome/Edge browsers, no installation required!
 
 ## Features
 
@@ -43,6 +46,35 @@ A free, ad-free, open-source Android app that casts web videos to Chromecast/Goo
 ### Build Variants
 - `debug` - For development, includes logging
 - `release` - Optimized, unsigned (sign for distribution)
+
+## 🌐 Web App (Browser-based)
+
+### Features
+- **No installation required** - Runs in Chrome/Edge browser
+- **Same casting engine** - Uses Chrome Cast Sender SDK with Default Receiver (CC1AD845)
+- **Video extraction** - Detects videos from YouTube, Vimeo, direct links, and embedded players
+- **Material 3 UI** - Beautiful dark theme, responsive design
+- **PWA support** - Installable as standalone app
+
+### Running Locally
+```bash
+# Serve locally (any static server)
+cd web
+npx serve .
+# Or with Python
+python -m http.server 8080
+# Then open http://localhost:8080
+```
+
+### Requirements
+- **Chrome or Edge browser** (Firefox/Safari don't support Cast Sender SDK)
+- **Chromecast/Google TV** on same WiFi network
+- **HTTPS or localhost** (Cast SDK requires secure context)
+
+### Deploy to GitHub Pages
+1. Enable GitHub Pages in repo Settings → Pages → Source: "GitHub Actions"
+2. Push to main branch - auto-deploys via `.github/workflows/deploy-web.yml`
+3. Access at `https://<username>.github.io/castTV/`
 
 ## Registering the Cast App
 
@@ -170,6 +202,15 @@ chromecast/
 │   ├── src/main/resources/
 │   │   └── application.conf
 │   └── build.gradle.kts
+├── web/                          # Web App (Browser-based)
+│   ├── index.html
+│   ├── app.js
+│   ├── styles.css
+│   └── manifest.json
+├── .github/workflows/
+│   ├── build-apk.yml             # Android APK builds
+│   ├── release.yml               # Signed releases
+│   └── deploy-web.yml            # GitHub Pages deployment
 ├── settings.gradle.kts
 ├── build.gradle.kts
 └── README.md
