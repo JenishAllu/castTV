@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    tools:context=".ui.MainActivity">
+
+    <!-- WebView for browsing -->
+    <androidx.webkit.WebViewCompat
+        android:id="@+id/webView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/webview_background"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+
+    <!-- Toolbar with URL bar and cast button -->
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appBarLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:theme="@style/Theme.WebVideoCaster.AppBarOverlay"
+        android:fitsSystemWindows="true">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@color/surface"
+            app:title="@string/app_name"
+            app:navigationIcon="@drawable/ic_home"
+            app:menu="@menu/menu_main" />
+
+        <!-- Cast button in toolbar -->
+        <androidx.mediarouter.app.MediaRouteButton
+            android:id="@+id/castButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="8dp"
+            android:contentDescription="@string/cast_button_tooltip"
+            android:mediaRouteTypes="user"
+            android:visibility="visible" />
+
+        <!-- URL Bar -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/urlInputLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="8dp"
+            android:background="@drawable/url_bar_background"
+            app:boxBackgroundMode="none"
+            app:hintEnabled="false"
+            app:startIconDrawable="@drawable/ic_search"
+            app:endIconMode="custom"
+            app:endIconDrawable="@drawable/ic_refresh">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/urlEditText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/url_hint"
+                android:imeOptions="actionGo"
+                android:inputType="textUri"
+                android:maxLines="1"
+                android:textColor="@color/on_surface"
+                android:textColorHint="@color/on_surface_variant"
+                android:textSize="16sp" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <!-- Floating Action Button for casting -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/castFab"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:contentDescription="@string/cast_button_tooltip"
+        android:src="@drawable/ic_cast"
+        android:tint="@color/cast_button_color"
+        app:backgroundTint="@color/purple_700"
+        app:fabCustomSize="56dp"
+        app:layout_anchor="@id/webView"
+        app:layout_anchorGravity="bottom|end" />
+
+    <!-- Video found indicator -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/videoFoundCard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:visibility="gone"
+        app:cardBackgroundColor="@color/success"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="8dp"
+        app:layout_anchor="@id/webView"
+        app:layout_anchorGravity="bottom|center_horizontal">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="16dp"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_video_found"
+                android:tint="@color/black" />
+
+            <TextView
+                android:id="@+id/videoFoundText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="12dp"
+                android:text="@string/video_found"
+                android:textColor="@color/black"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/castNowButton"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="@string/play_on_tv"
+                android:textAllCaps="false"
+                android:textColor="@color/black"
+                android:textSize="14sp"
+                style="@style/Widget.Material3.Button.OutlinedButton" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Cast status bar at bottom -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/castStatusBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:visibility="gone"
+        app:cardBackgroundColor="@color/surface"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="8dp"
+        app:layout_anchor="@id/webView"
+        app:layout_anchorGravity="bottom|center_horizontal">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="12dp 16dp"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:id="@+id/castStatusIcon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_cast_connected"
+                android:tint="@color/purple_700" />
+
+            <TextView
+                android:id="@+id/castStatusText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="12dp"
+                android:text="@string/ready_to_cast"
+                android:textColor="@color/on_surface"
+                android:textSize="14sp" />
+
+            <Button
+                android:id="@+id/stopCastButton"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="@string/stop_casting"
+                android:textAllCaps="false"
+                android:textColor="@color/error"
+                android:textSize="14sp"
+                style="@style/Widget.Material3.Button.TextButton" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Progress indicator -->
+    <ProgressBar
+        android:id="@+id/progressBar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="4dp"
+        android:layout_marginTop="?attr/actionBarSize"
+        android:indeterminate="true"
+        android:visibility="gone"
+        android:progressTint="@color/purple_700"
+        app:layout_anchor="@id/appBarLayout"
+        app:layout_anchorGravity="bottom" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

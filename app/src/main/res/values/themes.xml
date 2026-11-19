@@ -1,0 +1,52 @@
+<resources>
+    <!-- Base application theme (Material 3) -->
+    <style name="Theme.WebVideoCaster" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Primary brand color -->
+        <item name="colorPrimary">@color/purple_700</item>
+        <item name="colorPrimaryVariant">@color/purple_500</item>
+        <item name="colorOnPrimary">@color/white</item>
+
+        <!-- Secondary brand color -->
+        <item name="colorSecondary">@color/teal_200</item>
+        <item name="colorSecondaryVariant">@color/teal_700</item>
+        <item name="colorOnSecondary">@color/black</item>
+
+        <!-- Status bar color -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+
+        <!-- Navigation bar color -->
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightNavigationBar">true</item>
+
+        <!-- Window background -->
+        <item name="android:windowBackground">@color/background</item>
+
+        <!-- Shape appearance -->
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.WebVideoCaster.MediumComponent</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.WebVideoCaster.LargeComponent</item>
+    </style>
+
+    <!-- Theme for main activity with edge-to-edge -->
+    <style name="Theme.WebVideoCaster.NoActionBar" parent="Theme.WebVideoCaster">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+    </style>
+
+    <!-- Splash screen theme -->
+    <style name="Theme.WebVideoCaster.Splash" parent="Theme.WebVideoCaster">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+    </style>
+
+    <!-- Custom shapes -->
+    <style name="ShapeAppearance.WebVideoCaster.MediumComponent" parent="ShapeAppearance.Material3.MediumComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">12dp</item>
+    </style>
+
+    <style name="ShapeAppearance.WebVideoCaster.LargeComponent" parent="ShapeAppearance.Material3.LargeComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">16dp</item>
+    </style>
+</resources>

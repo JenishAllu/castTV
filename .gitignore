@@ -1,0 +1,54 @@
+# Gradle
+.gradle/
+build/
+*/build/
+*/build.gradle.kts.d/
+
+# Local configuration
+local.properties
+*.local.conf
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Android
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+*.jar
+*.so
+*.o
+*.lo
+*.obj
+
+# Generated
+*.generated.*
+
+# Logs
+*.log
+
+# Relay server
+relay-server/build/
+relay-server/.gradle/
+
+# Keystore
+*.jks
+*.keystore
+
+# Misc
+*.orig
+*.patch
+*.bak
+*.swp
+*~
