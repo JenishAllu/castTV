@@ -297,8 +297,14 @@ function initializeCast() {
 
 function onInitSuccess() {
     console.log('Cast SDK initialized');
+    // IMPORTANT: Save the cast context for later use
+    state.castContext = window.chrome.cast;
     elements.castButton.removeAttribute('aria-disabled');
     elements.castButton.style.opacity = '1';
+
+    // Request session to show device picker
+    // This also triggers receiverListener to update availability
+    launchCast();
 }
 
 function onInitError(error) {
@@ -333,8 +339,18 @@ function receiverListener(availability) {
 // CAST CONTROLS
 // ============================================
 function launchCast() {
-    if (!state.castContext) return;
-    state.castContext.requestSession()
+    if (!window.chrome || !window.chrome.cast) {
+        showSnackbar('Cast SDK not loaded. Use Chrome/Edge.');
+        return;
+    }
+
+    if (state.castSession) {
+        // Already connected - stop casting
+        stopCasting();
+        return;
+    }
+
+    window.chrome.cast.requestSession()
         .then(sessionListener)
         .catch(err => {
             console.error('Cast launch error:', err);
