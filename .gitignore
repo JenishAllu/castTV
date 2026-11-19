@@ -27,6 +27,7 @@ Thumbs.db
 *.dex
 *.class
 !gradle/wrapper/gradle-wrapper.jar
+!relay-server/gradle/wrapper/gradle-wrapper.jar
 *.so
 *.o
 *.lo
