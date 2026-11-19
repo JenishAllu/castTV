@@ -64,8 +64,63 @@
             </div>
         </div>
 
+        <!-- Start Page (shown when no URL loaded) -->
+        <div class="start-page" id="startPage" role="main">
+            <div class="start-page-content">
+                <div class="start-page-header">
+                    <span class="material-symbols-rounded start-page-icon">cast</span>
+                    <h1 class="start-page-title">Web Video Caster</h1>
+                    <p class="start-page-subtitle">Paste a video URL or search to cast to your TV</p>
+                </div>
+
+                <!-- Prominent Search/Paste Bar -->
+                <div class="start-search-container">
+                    <div class="mdc-text-field mdc-text-field--outlined mdc-text-field--with-leading-icon start-search-field" id="startSearchField">
+                        <span class="mdc-text-field__leading-icon material-symbols-rounded" aria-hidden="true">search</span>
+                        <input type="text" class="mdc-text-field__input" id="startSearchInput" placeholder="Paste video URL, youtu.be link, or search..." autocomplete="off" spellcheck="false" aria-label="Video URL or search query">
+                        <div class="mdc-notched-outline">
+                            <div class="mdc-notched-outline__leading"></div>
+                            <div class="mdc-notched-outline__notch"></div>
+                            <div class="mdc-notched-outline__trailing"></div>
+                        </div>
+                    </div>
+                    <button class="mdc-button mdc-button--filled start-search-button" id="startSearchButton" aria-label="Search and cast">
+                        <span class="mdc-button__icon material-symbols-rounded" aria-hidden="true">cast</span>
+                        <span class="mdc-button__label">Cast to TV</span>
+                    </button>
+                </div>
+
+                <!-- Quick Access Sites -->
+                <div class="quick-sites">
+                    <h2 class="quick-sites-title">Popular Sites</h2>
+                    <div class="quick-sites-grid" id="quickSitesGrid">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Tips -->
+                <div class="start-tips">
+                    <details class="mdc-card tip-card">
+                        <summary class="tip-summary">
+                            <span class="material-symbols-rounded">lightbulb</span>
+                            <span>Tips for best results</span>
+                        </summary>
+                        <div class="tip-content">
+                            <ul>
+                                <li><strong>YouTube:</strong> Paste any youtube.com or youtu.be link - auto-converts for casting</li>
+                                <li><strong>Direct links:</strong> .mp4, .m3u8, .mpd URLs play directly</li>
+                                <li><strong>News sites:</strong> CNN, BBC, etc. - video auto-detected</li>
+                                <li><strong>Vimeo:</strong> Paste video URL, embed player used</li>
+                                <li><strong>Search:</strong> Type keywords to search Google/YouTube</li>
+                            </ul>
+                        </div>
+                    </details>
+                </div>
+            </div>
+        </div>
+
         <!-- WebView Container -->
-        <div class="webview-container">
+        <div class="webview-container" id="webviewContainer">
             <iframe id="webview" class="webview" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads" allow="encrypted-media; picture-in-picture" referrerpolicy="no-referrer-when-downgrade"></iframe>
         </div>
 

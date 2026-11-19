@@ -27,6 +27,22 @@ const CONFIG = {
     vimeoPattern: /vimeo\.com\/(\d+)/i,
 };
 
+// Quick access sites for start page
+const QUICK_SITES = [
+    { name: 'YouTube', url: 'https://www.youtube.com', icon: '📺', color: '#FF0000' },
+    { name: 'Vimeo', url: 'https://vimeo.com', icon: '📹', color: '#1AB7EA' },
+    { name: 'Twitch', url: 'https://www.twitch.tv', icon: '🎮', color: '#9146FF' },
+    { name: 'Reddit', url: 'https://www.reddit.com', icon: '🔴', color: '#FF4500' },
+    { name: 'Twitter/X', url: 'https://x.com', icon: '🐦', color: '#000000' },
+    { name: 'Facebook', url: 'https://www.facebook.com', icon: '📘', color: '#1877F2' },
+    { name: 'Instagram', url: 'https://www.instagram.com', icon: '📷', color: '#E4405F' },
+    { name: 'TikTok', url: 'https://www.tiktok.com', icon: '🎵', color: '#000000' },
+    { name: 'CNN', url: 'https://www.cnn.com', icon: '📰', color: '#CC0000' },
+    { name: 'BBC', url: 'https://www.bbc.com', icon: '🌐', color: '#BB1919' },
+    { name: 'Google', url: 'https://www.google.com', icon: '🔍', color: '#4285F4' },
+    { name: 'Bing Video', url: 'https://www.bing.com/videos', icon: '🎬', color: '#00A6ED' },
+];
+
 // ============================================
 // STATE MANAGEMENT
 // ============================================
@@ -43,13 +59,13 @@ const state = {
 
 // ============================================
 // DOM ELEMENTS
-// ==========================================__
+// ============================================
 const elements = {
     castButton: document.getElementById('castButton'),
     urlInput: document.getElementById('urlInput'),
     goButton: document.getElementById('goButton'),
     webview: document.getElementById('webview'),
-    webviewContainer: document.querySelector('.webview-container'),
+    webviewContainer: document.getElementById('webviewContainer'),
     videoFoundCard: document.getElementById('videoFoundCard'),
     videoThumbnail: document.getElementById('videoThumbnail'),
     videoTitle: document.getElementById('videoTitle'),
@@ -66,6 +82,11 @@ const elements = {
     snackbar: document.getElementById('snackbar'),
     snackbarLabel: document.getElementById('snackbarLabel'),
     snackbarAction: document.getElementById('snackbarAction'),
+    // Start page elements
+    startPage: document.getElementById('startPage'),
+    startSearchInput: document.getElementById('startSearchInput'),
+    startSearchButton: document.getElementById('startSearchButton'),
+    quickSitesGrid: document.getElementById('quickSitesGrid'),
 };
 
 // ============================================
@@ -657,6 +678,10 @@ function navigateToUrl(url) {
     elements.webviewLoaded = false;
     hideVideoCard();
     elements.webviewContainer.classList.add('loading');
+
+    // Hide start page, show webview
+    elements.startPage.hidden = true;
+    elements.webviewContainer.classList.add('visible');
 }
 
 function handleUrlSubmit() {
@@ -664,6 +689,49 @@ function handleUrlSubmit() {
     if (url) {
         navigateToUrl(url);
     }
+}
+
+function handleStartSearch() {
+    const input = elements.startSearchInput.value.trim();
+    if (input) {
+        navigateToUrl(input);
+        elements.startSearchInput.value = '';
+    }
+}
+
+function showStartPage() {
+    elements.startPage.hidden = false;
+    elements.webviewContainer.classList.remove('visible');
+    elements.webview.src = 'about:blank';
+    hideVideoCard();
+}
+
+function renderQuickSites() {
+    const grid = elements.quickSitesGrid;
+    if (!grid) return;
+
+    grid.innerHTML = QUICK_SITES.map(site => `
+        <a href="${site.url}" class="quick-site-card" data-url="${site.url}" tabindex="0" role="button" aria-label="Open ${site.name}">
+            <div class="quick-site-icon" style="background-color: ${site.color}20; color: ${site.color};">
+                ${site.icon}
+            </div>
+            <span class="quick-site-name">${site.name}</span>
+        </a>
+    `).join('');
+
+    // Add click handlers
+    grid.querySelectorAll('.quick-site-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+            e.preventDefault();
+            navigateToUrl(card.dataset.url);
+        });
+        card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigateToUrl(card.dataset.url);
+            }
+        });
+    });
 }
 
 // ============================================
@@ -679,7 +747,7 @@ function setupEventListeners() {
         }
     });
 
-    // URL input
+    // URL input (top bar)
     elements.urlInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             handleUrlSubmit();
@@ -687,6 +755,15 @@ function setupEventListeners() {
     });
 
     elements.goButton.addEventListener('click', handleUrlSubmit);
+
+    // Start page search
+    elements.startSearchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            handleStartSearch();
+        }
+    });
+
+    elements.startSearchButton.addEventListener('click', handleStartSearch);
 
     // Play on TV button
     elements.playOnTvButton.addEventListener('click', () => {
@@ -744,6 +821,9 @@ function init() {
     // Setup event listeners
     setupEventListeners();
 
+    // Render quick sites on start page
+    renderQuickSites();
+
     // Initialize Cast SDK (wait for SDK to load)
     if (window.chrome && window.chrome.cast && window.chrome.cast.isAvailable) {
         initializeCast();
@@ -761,8 +841,8 @@ function init() {
         };
     }
 
-    // Load homepage
-    navigateToUrl('https://www.youtube.com');
+    // Show start page by default (don't auto-load YouTube)
+    showStartPage();
 
     // Handle share target (if launched via Web Share Target API)
     if (navigator.share && window.location.search) {
@@ -770,6 +850,14 @@ function init() {
         const sharedUrl = params.get('url') || params.get('text');
         if (sharedUrl) {
             navigateToUrl(sharedUrl);
+        }
+    }
+
+    // Handle URL in hash (for deep linking)
+    if (window.location.hash) {
+        const hashUrl = window.location.hash.slice(1);
+        if (hashUrl) {
+            navigateToUrl(decodeURIComponent(hashUrl));
         }
     }
 
