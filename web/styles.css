@@ -191,6 +191,36 @@ html, body {
     overflow: hidden;
 }
 
+.browser-notice {
+    position: fixed;
+    top: 68px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 110;
+    width: min(680px, calc(100% - 32px));
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-sys-shape-corner-medium);
+    background-color: var(--md-sys-color-surface);
+    box-shadow: 0 4px 16px var(--md-sys-elevation-level2);
+}
+
+.browser-notice[hidden] {
+    display: none;
+}
+
+.browser-notice > div {
+    flex: 1;
+}
+
+.browser-notice p {
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-body-small-size);
+}
+
 /* Top App Bar */
 .top-app-bar {
     position: fixed;
@@ -242,6 +272,17 @@ html, body {
 .url-bar {
     flex: 1;
     max-width: 100%;
+}
+
+.browser-nav-button {
+    color: var(--md-sys-color-on-surface);
+    --mdc-icon-button-size: 40px;
+    flex-shrink: 0;
+}
+
+.browser-nav-button:disabled {
+    opacity: 0.35;
+    cursor: default;
 }
 
 .url-bar .mdc-text-field__input {

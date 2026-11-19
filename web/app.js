@@ -49,12 +49,17 @@ const QUICK_SITES = [
 const state = {
     castContext: null,
     castSession: null,
+    castApi: null,
+    castFrameworkContext: null,
     currentMedia: null,
     mediaController: null,
     isCasting: false,
     discoveredVideo: null,
+    pendingMedia: null,
     webviewLoaded: false,
     isExtracting: false,
+    navigationHistory: [],
+    navigationIndex: -1,
 };
 
 // ============================================
@@ -62,6 +67,11 @@ const state = {
 // ============================================
 const elements = {
     castButton: document.getElementById('castButton'),
+    browserNotice: document.getElementById('browserNotice'),
+    backButton: document.getElementById('backButton'),
+    forwardButton: document.getElementById('forwardButton'),
+    refreshButton: document.getElementById('refreshButton'),
+    homeButton: document.getElementById('homeButton'),
     urlInput: document.getElementById('urlInput'),
     goButton: document.getElementById('goButton'),
     webview: document.getElementById('webview'),
@@ -116,19 +126,13 @@ function hideSnackbar() {
 
 function normalizeUrl(input) {
     input = input.trim();
-    // Handle youtu.be links
-    if (CONFIG.youtuBePattern.test(input)) {
-        const match = input.match(CONFIG.youtuBePattern);
-        return `https://www.youtube.com/watch?v=${match[1]}`;
-    }
     // Add protocol if missing
     if (!/^https?:\/\//i.test(input)) {
         // Check if it looks like a domain/URL
         if (input.includes('.') && !input.includes(' ')) {
             input = 'https://' + input;
         } else {
-            // Treat as search query
-            input = `https://www.google.com/search?q=${encodeURIComponent(input)}`;
+            input = `https://www.youtube.com/results?search_query=${encodeURIComponent(input)}`;
         }
     }
     return input;
@@ -275,11 +279,41 @@ const EXTRACTION_SCRIPT = `
 // CAST SDK INITIALIZATION
 // ============================================
 function initializeCast() {
-    if (!window.chrome || !window.chrome.cast || !window.chrome.cast.isAvailable) {
+    if (window.cast && window.cast.framework) {
+        try {
+            const frameworkContext = cast.framework.CastContext.getInstance();
+            frameworkContext.setOptions({
+                receiverApplicationId: CONFIG.defaultReceiverAppId
+            });
+            state.castFrameworkContext = frameworkContext;
+
+            frameworkContext.addEventListener(
+                cast.framework.CastContextEventType.SESSION_STATE_CHANGED,
+                (event) => {
+                    if (event.sessionState === cast.framework.SessionState.SESSION_STARTED ||
+                        event.sessionState === cast.framework.SessionState.SESSION_RESUMED) {
+                        sessionListener(event.session);
+                    } else if (event.sessionState === cast.framework.SessionState.SESSION_ENDED ||
+                               event.sessionState === cast.framework.SessionState.SESSION_ENDING) {
+                        stopSuccess();
+                    }
+                }
+            );
+
+            elements.castButton.removeAttribute('aria-disabled');
+            elements.castButton.style.opacity = '1';
+            showSnackbar('Cast is ready. Select the cast button to choose a device.');
+            return;
+        } catch (error) {
+            console.warn('Modern Cast Framework setup failed, trying legacy SDK:', error);
+        }
+    }
+
+    if (!window.chrome || !window.chrome.cast) {
         console.warn('Cast SDK not available');
-        showSnackbar('Cast not available. Open in Chrome/Edge browser.', 'Dismiss');
-        elements.castButton.setAttribute('aria-disabled', 'true');
-        elements.castButton.style.opacity = '0.5';
+        showSnackbar('Cast works in Chrome or Edge on this computer.', 'Dismiss');
+        elements.castButton.removeAttribute('aria-disabled');
+        elements.castButton.style.opacity = '1';
         return;
     }
 
@@ -297,29 +331,48 @@ function initializeCast() {
 
 function onInitSuccess() {
     console.log('Cast SDK initialized');
-    // IMPORTANT: Save the cast context for later use
     state.castContext = window.chrome.cast;
     elements.castButton.removeAttribute('aria-disabled');
     elements.castButton.style.opacity = '1';
-
-    // Request session to show device picker
-    // This also triggers receiverListener to update availability
-    launchCast();
+    showSnackbar('Cast is ready. Select the cast button to choose a device.');
 }
 
 function onInitError(error) {
     console.error('Cast SDK init error:', error);
     showSnackbar('Failed to initialize Cast. Check browser support.', 'Dismiss');
-    elements.castButton.setAttribute('aria-disabled', 'true');
-    elements.castButton.style.opacity = '0.5';
+    elements.castButton.removeAttribute('aria-disabled');
+    elements.castButton.style.opacity = '1';
 }
 
 function sessionListener(session) {
     console.log('Session created:', session.sessionId);
     state.castSession = session;
     state.isCasting = true;
+    if (state.castFrameworkContext) {
+        const player = new cast.framework.RemotePlayer();
+        const controller = new cast.framework.RemotePlayerController(player);
+        state.mediaController = { player, controller };
+        controller.addEventListener(
+            cast.framework.RemotePlayerEventType.STATUS_CHANGED,
+            updateCastUI
+        );
+        controller.addEventListener(
+            cast.framework.RemotePlayerEventType.CURRENT_TIME_CHANGED,
+            updateCastProgress
+        );
+    }
+    if (typeof session.addUpdateListener === 'function') {
+        session.addUpdateListener((isAlive) => {
+            if (!isAlive) stopSuccess();
+        });
+    }
     updateCastUI();
     setupMediaController();
+    if (state.pendingMedia) {
+        const pendingMedia = state.pendingMedia;
+        state.pendingMedia = null;
+        loadMedia(pendingMedia);
+    }
 }
 
 function receiverListener(availability) {
@@ -329,8 +382,10 @@ function receiverListener(availability) {
         elements.castButton.style.opacity = '1';
         elements.castButton.classList.add('cast-available');
     } else {
-        elements.castButton.setAttribute('aria-disabled', 'true');
-        elements.castButton.style.opacity = '0.5';
+        // Keep the button enabled. It opens Chrome's device picker, which can
+        // provide discovery and network troubleshooting instead of a dead control.
+        elements.castButton.removeAttribute('aria-disabled');
+        elements.castButton.style.opacity = '1';
         elements.castButton.classList.remove('cast-available');
     }
 }
@@ -339,6 +394,20 @@ function receiverListener(availability) {
 // CAST CONTROLS
 // ============================================
 function launchCast() {
+    if (state.castFrameworkContext) {
+        if (state.castSession) {
+            stopCasting();
+            return;
+        }
+        state.castFrameworkContext.requestSession().then((session) => {
+            sessionListener(session);
+        }).catch((error) => {
+            console.error('Cast Framework launch error:', error);
+            showSnackbar('No Cast device available or connection was rejected.', 'Retry', launchCast);
+        });
+        return;
+    }
+
     if (!window.chrome || !window.chrome.cast) {
         showSnackbar('Cast SDK not loaded. Use Chrome/Edge.');
         return;
@@ -350,17 +419,29 @@ function launchCast() {
         return;
     }
 
-    window.chrome.cast.requestSession()
-        .then(sessionListener)
-        .catch(err => {
-            console.error('Cast launch error:', err);
-            if (err.code !== chrome.cast.ErrorCode.CANCEL) {
-                showSnackbar('Failed to connect to Cast device', 'Retry', launchCast);
-            }
-        });
+    const castError = (err) => {
+        console.error('Cast launch error:', err);
+        if (err && err.code === chrome.cast.ErrorCode.CANCEL) {
+            showSnackbar('Cast selection cancelled.');
+        } else if (err && err.code === chrome.cast.ErrorCode.TIMEOUT) {
+            showSnackbar('No Cast device responded. Make sure it is powered on and on the same Wi-Fi network.', 'Retry', launchCast);
+        } else if (err && err.code === 'chrome_cast_network_error') {
+            showSnackbar('Cannot discover Cast devices. Check Wi-Fi and Chrome Cast settings.', 'Retry', launchCast);
+        } else {
+            showSnackbar('No Cast device available or connection was rejected.', 'Retry', launchCast);
+        }
+    };
+
+    // Chrome's legacy Sender API returns callbacks, not a Promise.
+    window.chrome.cast.requestSession(sessionListener, castError);
 }
 
 function stopCasting() {
+    if (state.castFrameworkContext) {
+        state.castFrameworkContext.endCurrentSession(true);
+        stopSuccess();
+        return;
+    }
     if (state.castSession) {
         state.castSession.stop(stopSuccess, stopError);
     }
@@ -372,6 +453,7 @@ function stopSuccess() {
     state.isCasting = false;
     state.currentMedia = null;
     state.mediaController = null;
+    state.pendingMedia = null;
     updateCastUI();
     showSnackbar('Stopped casting');
 }
@@ -383,7 +465,9 @@ function stopError(error) {
 
 function setupMediaController() {
     if (!state.castSession) return;
-    state.mediaController = state.castSession.getMediaSession();
+    if (!state.castFrameworkContext) {
+        state.mediaController = state.castSession.getMediaSession();
+    }
     if (state.mediaController) {
         addMediaListeners();
         updateCastProgress();
@@ -415,7 +499,9 @@ function mediaUpdateListener(isAlive) {
 
 function loadMedia(videoInfo) {
     if (!state.castSession) {
-        showSnackbar('Not connected to Cast device');
+        state.pendingMedia = videoInfo;
+        launchCast();
+        showSnackbar('Choose a Cast device first. The selected video is ready to play.');
         return;
     }
 
@@ -427,6 +513,33 @@ function loadMedia(videoInfo) {
     }
 
     console.log('Casting:', fixedVideoInfo);
+
+    if (state.castFrameworkContext) {
+        const mediaInfo = new cast.framework.messages.MediaInfo(
+            fixedVideoInfo.url,
+            fixedVideoInfo.mimeType
+        );
+        mediaInfo.metadata = new cast.framework.messages.GenericMediaMetadata();
+        mediaInfo.metadata.title = fixedVideoInfo.title || 'Web Video';
+        if (fixedVideoInfo.poster) {
+            mediaInfo.metadata.images = [{ url: fixedVideoInfo.poster }];
+        }
+
+        const request = new cast.framework.messages.LoadRequestData();
+        request.media = mediaInfo;
+        request.autoplay = true;
+        request.currentTime = 0;
+
+        state.castSession.loadMedia(request).then(() => {
+            updateCastUI();
+            hideVideoCard();
+            showSnackbar('Now playing on TV');
+        }).catch((error) => {
+            console.error('Load media error:', error);
+            showSnackbar('Failed to cast this media. Try a direct MP4, HLS, or MPD link.', 'Retry', () => loadMedia(videoInfo));
+        });
+        return;
+    }
 
     const mediaInfo = new chrome.cast.media.MediaInfo(fixedVideoInfo.url, fixedVideoInfo.mimeType);
     mediaInfo.metadata = new chrome.cast.media.GenericMediaMetadata();
@@ -445,8 +558,7 @@ function loadMedia(videoInfo) {
     request.autoplay = true;
     request.currentTime = 0;
 
-    state.castSession.loadMedia(request)
-        .then(media => {
+    const onLoaded = (media) => {
             console.log('Media loaded:', media.mediaSessionId);
             state.currentMedia = media;
             state.mediaController = media;
@@ -455,11 +567,12 @@ function loadMedia(videoInfo) {
             updateCastProgress();
             hideVideoCard();
             showSnackbar('Now playing on TV');
-        })
-        .catch(err => {
+    };
+
+    const onLoadError = (err) => {
             console.error('Load media error:', err.code, err.description, err.details);
             let msg = 'Failed to cast: ';
-            switch (err.code) {
+            switch (err && err.code) {
                 case chrome.cast.ErrorCode.INVALID_PARAMETER:
                     msg += 'Invalid video URL or format';
                     break;
@@ -470,14 +583,16 @@ function loadMedia(videoInfo) {
                     msg += 'Connection timeout';
                     break;
                 default:
-                    msg += err.description || 'Unknown error';
+                    msg += (err && (err.description || err.details)) || 'Unknown error';
             }
             showSnackbar(msg, 'Retry', () => loadMedia(videoInfo));
-        });
+    };
+
+    state.castSession.loadMedia(request, onLoaded, onLoadError);
 }
 
 function prepareVideoForCasting(videoInfo) {
-    const url = videoInfo.url;
+    const url = videoInfo.url.trim();
     const type = videoInfo.type;
 
     // YouTube: Must use youtu.be format for Default Receiver
@@ -496,9 +611,9 @@ function prepareVideoForCasting(videoInfo) {
         if (videoId) {
             return {
                 ...videoInfo,
-                url: `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1`,
-                mimeType: 'text/html',
-                type: 'youtube-embed'
+                url: `https://youtu.be/${videoId}`,
+                mimeType: 'video/mp4',
+                type: 'youtube'
             };
         }
     }
@@ -557,6 +672,10 @@ function prepareVideoForCasting(videoInfo) {
 
 function togglePlayPause() {
     if (!state.mediaController) return;
+    if (state.castFrameworkContext) {
+        state.mediaController.controller.playOrPause();
+        return;
+    }
     if (state.currentMedia && state.currentMedia.playerState === 'PLAYING') {
         state.mediaController.pause();
         elements.castPlayPause.textContent = 'play_arrow';
@@ -567,7 +686,13 @@ function togglePlayPause() {
 }
 
 function seekTo(percent) {
-    if (!state.mediaController || !state.currentMedia) return;
+    if (!state.mediaController) return;
+    if (state.castFrameworkContext) {
+        const player = state.mediaController.player;
+        player.currentTime = (percent / 100) * (player.duration || 0);
+        state.mediaController.controller.seek();
+        return;
+    }
     const duration = state.currentMedia.media.duration;
     if (duration) {
         state.currentMedia.currentTime = (percent / 100) * duration;
@@ -580,7 +705,9 @@ function seekTo(percent) {
 // ============================================
 function updateCastUI() {
     const isConnected = !!state.castSession;
-    const isPlaying = state.currentMedia && state.currentMedia.playerState === 'PLAYING';
+    const isPlaying = state.castFrameworkContext
+        ? state.mediaController && state.mediaController.player && state.mediaController.player.isPaused === false
+        : state.currentMedia && state.currentMedia.playerState === 'PLAYING';
 
     elements.castButton.textContent = isConnected ? 'cast_connected' : 'cast';
     elements.castButton.classList.toggle('casting', isConnected);
@@ -599,6 +726,13 @@ function updateCastUI() {
 }
 
 function updateCastProgress() {
+    if (state.castFrameworkContext && state.mediaController) {
+        const player = state.mediaController.player;
+        if (player.duration) {
+            elements.castSeekBar.value = (player.currentTime / player.duration) * 100;
+        }
+        return;
+    }
     if (!state.currentMedia || !state.currentMedia.media || !state.currentMedia.media.duration) {
         return;
     }
@@ -740,8 +874,8 @@ function processExtractionResults(results) {
     }
 }
 
-async function detectVideoFromUrl() {
-    const url = elements.webview.src || elements.urlInput.value;
+async function detectVideoFromUrl(forcedUrl) {
+    const url = forcedUrl || elements.webview.src || elements.urlInput.value;
     if (!url) return;
 
     // Check for direct video URLs
@@ -805,9 +939,38 @@ function navigateToUrl(url) {
     hideVideoCard();
     elements.webviewContainer.classList.add('loading');
 
+    detectVideoFromUrl(normalized);
+
     // Hide start page, show webview
     elements.startPage.hidden = true;
     elements.webviewContainer.classList.add('visible');
+    addNavigationHistory(normalized);
+}
+
+function addNavigationHistory(url) {
+    if (state.navigationHistory[state.navigationIndex] === url) return;
+    state.navigationHistory = state.navigationHistory.slice(0, state.navigationIndex + 1);
+    state.navigationHistory.push(url);
+    state.navigationIndex = state.navigationHistory.length - 1;
+    updateNavigationButtons();
+}
+
+function updateNavigationButtons() {
+    elements.backButton.disabled = state.navigationIndex <= 0;
+    elements.forwardButton.disabled = state.navigationIndex >= state.navigationHistory.length - 1;
+}
+
+function navigateHistory(offset) {
+    const newIndex = state.navigationIndex + offset;
+    if (newIndex < 0 || newIndex >= state.navigationHistory.length) return;
+    state.navigationIndex = newIndex;
+    const url = state.navigationHistory[newIndex];
+    elements.webview.src = url;
+    elements.urlInput.value = url;
+    elements.webviewLoaded = false;
+    hideVideoCard();
+    detectVideoFromUrl(url);
+    updateNavigationButtons();
 }
 
 function handleUrlSubmit() {
@@ -820,8 +983,17 @@ function handleUrlSubmit() {
 function handleStartSearch() {
     const input = elements.startSearchInput.value.trim();
     if (input) {
-        navigateToUrl(input);
+        const normalized = normalizeUrl(input);
+        navigateToUrl(normalized);
+        detectVideoFromUrl(normalized);
         elements.startSearchInput.value = '';
+        if (state.discoveredVideo) {
+            loadMedia(state.discoveredVideo);
+        } else if (state.castSession) {
+            showSnackbar('Page opened. Casting is connected; choose a video link on the page.');
+        } else {
+            showSnackbar('Page opened. Press Cast to choose a TV.');
+        }
     }
 }
 
@@ -881,6 +1053,13 @@ function setupEventListeners() {
     });
 
     elements.goButton.addEventListener('click', handleUrlSubmit);
+    elements.backButton.addEventListener('click', () => navigateHistory(-1));
+    elements.forwardButton.addEventListener('click', () => navigateHistory(1));
+    elements.refreshButton.addEventListener('click', () => {
+        if (!elements.webviewContainer.classList.contains('visible')) return;
+        elements.webview.src = elements.urlInput.value || elements.webview.src;
+    });
+    elements.homeButton.addEventListener('click', showStartPage);
 
     // Start page search
     elements.startSearchInput.addEventListener('keydown', (e) => {
@@ -938,6 +1117,12 @@ function setupEventListeners() {
 function init() {
     console.log('Web Video Caster initializing...');
 
+    const ua = navigator.userAgent.toLowerCase();
+    const embeddedBrowser = ua.includes('electron') || ua.includes('code');
+    if (embeddedBrowser && elements.browserNotice) {
+        elements.browserNotice.hidden = false;
+    }
+
     // Initialize Material Components
     if (window.mdc) {
         // Auto-init MDC components
@@ -951,7 +1136,7 @@ function init() {
     renderQuickSites();
 
     // Initialize Cast SDK (wait for SDK to load)
-    if (window.chrome && window.chrome.cast && window.chrome.cast.isAvailable) {
+    if ((window.cast && window.cast.framework) || (window.chrome && window.chrome.cast)) {
         initializeCast();
     } else {
         // Wait for Cast SDK
@@ -961,8 +1146,8 @@ function init() {
             } else {
                 console.error('Cast SDK failed to load:', error);
                 showSnackbar('Cast SDK unavailable. Use Chrome/Edge.', 'Dismiss');
-                elements.castButton.setAttribute('aria-disabled', 'true');
-                elements.castButton.style.opacity = '0.5';
+                elements.castButton.removeAttribute('aria-disabled');
+                elements.castButton.style.opacity = '1';
             }
         };
     }

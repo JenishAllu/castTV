@@ -15,6 +15,16 @@
 </head>
 <body>
     <div class="app">
+        <div class="browser-notice" id="browserNotice" hidden>
+            <span class="material-symbols-rounded" aria-hidden="true">cast_warning</span>
+            <div>
+                <strong>Open in Google Chrome</strong>
+                <p>Chromecast discovery is blocked in embedded browsers. Use Chrome on the same Wi-Fi network.</p>
+            </div>
+            <a class="mdc-button mdc-button--outlined" id="openChromeButton" href="http://localhost:8080/" target="_blank" rel="noopener">
+                Open Chrome
+            </a>
+        </div>
         <!-- Top App Bar -->
         <header class="top-app-bar" role="banner">
             <div class="mdc-top-app-bar">
@@ -33,6 +43,10 @@
 
         <!-- URL Bar -->
         <div class="url-bar-container">
+            <button class="mdc-icon-button material-symbols-rounded browser-nav-button" id="backButton" aria-label="Go back" title="Back">arrow_back</button>
+            <button class="mdc-icon-button material-symbols-rounded browser-nav-button" id="forwardButton" aria-label="Go forward" title="Forward">arrow_forward</button>
+            <button class="mdc-icon-button material-symbols-rounded browser-nav-button" id="refreshButton" aria-label="Refresh page" title="Refresh">refresh</button>
+            <button class="mdc-icon-button material-symbols-rounded browser-nav-button" id="homeButton" aria-label="Home" title="Home">home</button>
             <div class="mdc-text-field mdc-text-field--outlined mdc-text-field--with-leading-icon url-bar">
                 <span class="mdc-text-field__leading-icon material-symbols-rounded" aria-hidden="true">search</span>
                 <input type="url" class="mdc-text-field__input" id="urlInput" placeholder="Enter video URL or search..." autocomplete="off" spellcheck="false">
@@ -121,7 +135,7 @@
 
         <!-- WebView Container -->
         <div class="webview-container" id="webviewContainer">
-            <iframe id="webview" class="webview" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads" allow="encrypted-media; picture-in-picture" referrerpolicy="no-referrer-when-downgrade"></iframe>
+            <iframe id="webview" class="webview" sandbox="allow-scripts allow-forms allow-popups allow-modals allow-downloads" allow="encrypted-media; picture-in-picture" referrerpolicy="no-referrer-when-downgrade"></iframe>
         </div>
 
         <!-- Cast Status Bar (shown when casting) -->
