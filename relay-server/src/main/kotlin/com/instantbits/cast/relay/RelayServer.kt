@@ -5,10 +5,10 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
-import io.ktor.server.contentnegotiation.*
+import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.plugins.statuspages.*
-import io.ktor.server.plugins.calllogging.*
+import io.ktor.server.plugins.callloging.*
 import io.ktor.server.plugins.hsts.*
 import io.ktor.server.plugins.conditionalheaders.*
 import io.ktor.server.plugins.compression.*
@@ -50,7 +50,7 @@ fun Application.module() {
         json()
     }
     install(StatusPages) {
-        exception<Throwable> { cause ->
+        exception<Throwable> { call, cause ->
             call.respond(HttpStatusCode.InternalServerError, ErrorResponse(cause.message ?: "Internal error"))
         }
     }
@@ -72,7 +72,10 @@ fun Application.module() {
 
         get("/extract") {
             val url = call.request.queryParameters["url"]
-                ?: call.respond(HttpStatusCode.BadRequest, ErrorResponse("Missing 'url' parameter")).also { return@get }
+            if (url == null) {
+                call.respond(HttpStatusCode.BadRequest, ErrorResponse("Missing 'url' parameter"))
+                return@get
+            }
             val result = extractVideoUrl(url)
             call.respond(result)
         }
@@ -128,8 +131,8 @@ fun extractVideoUrl(url: String): ExtractResponse {
             .ignoreContentType(true)
 
         val response = connection.execute()
-        if (response.statusCode !in 200..299) {
-            return ExtractResponse(success = false, error = "HTTP ${response.statusCode}: ${response.statusMessage}")
+        if (response.statusCode() !in 200..299) {
+            return ExtractResponse(success = false, error = "HTTP ${response.statusCode()}: ${response.statusMessage()}")
         }
 
         val doc = response.parse()
@@ -359,9 +362,9 @@ private fun extractFromJsonLd(doc: Document, candidates: MutableList<VideoCandid
 }
 
 private fun extractVideoFromJsonLd(json: JsonObject, baseUrl: String, candidates: MutableList<VideoCandidate>) {
-    val type = json["@type"]?.content
+    val type = json["@type"]?.jsonPrimitive?.content
     if (type == "VideoObject" || type == "BroadcastEvent") {
-        json["contentUrl"]?.content?.let { url ->
+        json["contentUrl"]?.jsonPrimitive?.content?.let { url ->
             candidates.add(VideoCandidate(
                 url = resolveUrl(baseUrl, url),
                 mimeType = getMimeType(url),
@@ -369,7 +372,7 @@ private fun extractVideoFromJsonLd(json: JsonObject, baseUrl: String, candidates
                 priority = 60
             ))
         }
-        json["embedUrl"]?.content?.let { url ->
+        json["embedUrl"]?.jsonPrimitive?.content?.let { url ->
             candidates.add(VideoCandidate(
                 url = resolveUrl(baseUrl, url),
                 mimeType = getMimeType(url),
