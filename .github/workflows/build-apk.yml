@@ -34,8 +34,19 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Debug - Check Gradle wrapper
+        run: |
+          ls -la gradle/wrapper/
+          cat gradle/wrapper/gradle-wrapper.properties
+          file gradle/wrapper/gradle-wrapper.jar
+
+      - name: Debug - Java and Gradle version
+        run: |
+          java -version
+          ./gradlew --version
+
       - name: Build Debug APK
-        run: ./gradlew :app:assembleDebug --no-daemon
+        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
@@ -71,8 +82,19 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Debug - Check Gradle wrapper
+        run: |
+          ls -la gradle/wrapper/
+          cat gradle/wrapper/gradle-wrapper.properties
+          file gradle/wrapper/gradle-wrapper.jar
+
+      - name: Debug - Java and Gradle version
+        run: |
+          java -version
+          ./gradlew --version
+
       - name: Build Release APK
-        run: ./gradlew :app:assembleRelease --no-daemon
+        run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
@@ -100,8 +122,14 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Debug - Check relay-server Gradle wrapper
+        run: |
+          ls -la relay-server/gradle/wrapper/
+          cat relay-server/gradle/wrapper/gradle-wrapper.properties
+          file relay-server/gradle/wrapper/gradle-wrapper.jar
+
       - name: Build Relay Server
-        run: ./gradlew :relay-server:build --no-daemon
+        run: ./gradlew :relay-server:build --no-daemon --stacktrace
 
       - name: Upload Relay Server JAR
         uses: actions/upload-artifact@v4
